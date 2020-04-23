@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div>
+    {% if g.user %}
+    Hello! {{ g.user['github_login'] }}
+    <a href="{{ url_for('events') }}">Events</a>
+    <a href="{{ url_for('logout') }}">Logout</a>
+    {% else %}
+    Hello! <a href="{{ url_for('login') }}">Login</a>
+    {% endif %}
+</div>
+{% endblock %}

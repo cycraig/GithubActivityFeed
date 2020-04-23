@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  {% if events %}
+    {% for event in events %}
+    <div class="outer-event-container">
+      <i class="event-icon fa-lg {{ event_icons[event['type']] }}"></i>
+      <div class="event-container">
+        <span class="mr-3">
+          <a href="{{ event['actor']['url'] }}">
+            <img class="avatar" src="{{ event['actor']['avatar_url'] }}" width="42" height="42">
+          </a>
+        </span>
+        <div class="event-content">
+          <span>
+          <a href="{{ event['actor']['url'] }}">{{ event['actor']['login'] }}</a>
+          {{ event_templates[event['type']](event)|safe }}
+          </span>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    No events for {{ target_user }}!
+  {% endif %}
+{% endblock %}

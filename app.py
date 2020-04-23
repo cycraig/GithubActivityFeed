@@ -1,0 +1,128 @@
+import os, sys, logging
+from dotenv import load_dotenv
+from flask import Flask, flash, render_template, request, g, session, redirect, url_for, render_template_string, jsonify
+
+from github import GitHubAPI, GitHubAPIError
+from github_event_template import github_event_templates, github_event_icons
+
+# Logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG,
+                    format='[%(asctime)s] %(name)s %(levelname)s:%(message)s')
+
+# GitHub API
+load_dotenv()
+GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID')
+GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET')
+if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
+    logger.error('Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env or environment variables')
+    sys.exit(-1)
+github = GitHubAPI(GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET)
+
+# Flask
+app = Flask(__name__)
+app.config.from_object(__name__)
+app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+
+# TODO: use a database
+users = {}
+id = 0
+
+
+@app.before_request
+def before_request():
+    global users
+    g.user = None
+    if 'user_id' in session:
+        # User.query.get(session['user_id'])
+        g.user = users.get(session['user_id'], None)
+    #print(g.user)
+
+
+@app.after_request
+def after_request(response):
+    # db_session.remove()
+    return response
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route('/oauth-callback')
+def oauth_callback():
+    global id
+    global users
+    code = request.args.get('code')
+    access_token = github.oauth_callback(code)
+    next_url = request.args.get('next') or url_for('index')
+    if access_token is None:
+        return redirect(next_url)
+
+    #user = User.query.filter_by(github_access_token=access_token).first()
+    user = None
+    #print(users)
+    for u in users:
+        if users[u]['github_access_token'] == access_token:
+            user = users[u]
+            break
+    if user is None:
+        # User(access_token)
+        user = {'user_id': id, 'github_access_token': access_token}
+        # db_session.add(user)
+        users[id] = user
+        id += 1
+
+    #user.github_access_token = access_token
+    g.user = user
+    github_user = github.get('/user', access_token).json()
+    user['github_login'] = github_user['login']
+
+    # db_session.commit()
+    session['user_id'] = user['user_id']
+    return redirect(next_url)
+
+
+@app.route('/login')
+def login():
+    user_id = session.get('user_id', None)
+    if user_id is None or not user_id in users:
+        return redirect(github.oauth_url())
+    else:
+        return redirect(url_for('events'))
+
+
+@app.route('/logout')
+def logout():
+    # remove the user_id from the session
+    session.pop('user_id', None)
+    flash("Logged out!")
+    return redirect(url_for('index'))
+
+
+@app.route("/events")
+def events():
+    token = None
+
+    # Extract user to retrieve events of from args.
+    # If absent default to the logged-in user, otherwise cycraig
+    target_user = request.args.get("user", None)
+    if g.user:
+        token = g.user.get("github_access_token", None)
+        if target_user is None:
+            target_user = g.user.get("github_login", None)
+    if target_user is None:
+        target_user = "cycraig"
+
+    try:
+        events = github.get_user_received_events(target_user, token)
+        return render_template("events.html", events=events, target_user=target_user, event_templates=github_event_templates, event_icons=github_event_icons)
+    except Exception as e:
+        logger.exception(e)
+        flash(str(e))
+        return render_template("events.html", events=None, target_user=target_user)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
