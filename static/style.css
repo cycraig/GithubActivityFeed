@@ -42,6 +42,10 @@ main.container {
     width: 100%;
 }
 
+.event-timestamp {
+    color: gray;
+}
+
 img.avatar {
     border-style: none;
 }

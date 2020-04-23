@@ -12,6 +12,9 @@
           </a>
         </span>
         <div class="event-content">
+          <small class="event-timestamp">
+            {{ event['created_at'] | datetimesince }}
+          </small>
           <span>
           <a href="{{ event['actor']['url'] }}">{{ event['actor']['login'] }}</a>
           {{ event_templates[event['type']](event)|safe }}

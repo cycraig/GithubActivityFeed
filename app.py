@@ -1,4 +1,8 @@
-import os, sys, logging
+import os
+import sys
+import logging
+import dateutil.parser as dt
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from flask import Flask, flash, render_template, request, g, session, redirect, url_for, render_template_string, jsonify
 
@@ -36,7 +40,7 @@ def before_request():
     if 'user_id' in session:
         # User.query.get(session['user_id'])
         g.user = users.get(session['user_id'], None)
-    #print(g.user)
+    # print(g.user)
 
 
 @app.after_request
@@ -62,7 +66,7 @@ def oauth_callback():
 
     #user = User.query.filter_by(github_access_token=access_token).first()
     user = None
-    #print(users)
+    # print(users)
     for u in users:
         if users[u]['github_access_token'] == access_token:
             user = users[u]
@@ -103,6 +107,7 @@ def logout():
 
 @app.route("/events")
 def events():
+    # TODO: an OAuth token still doesn't retrieve private events?
     token = None
 
     # Extract user to retrieve events of from args.
@@ -122,6 +127,36 @@ def events():
         logger.exception(e)
         flash(str(e))
         return render_template("events.html", events=None, target_user=target_user)
+
+
+@app.template_filter()
+def datetimesince(datestr):
+    """Returns the difference between the given datetime string and now as text.
+
+    E.g. 13 minutes ago
+    """
+    try:
+        if isinstance(datestr, str):
+            datestr = dt.parse(datestr)
+        now = datetime.now(timezone.utc)
+        diff = now - datestr
+        d = diff.days // 365
+        if d > 0: return "%d %s ago" % (d, "year" if d == 1 else "years")
+        d = diff.days // 30
+        if d > 0: return "%d %s ago" % (d, "month" if d == 1 else "months")
+        d = diff.days // 7
+        if d > 0: return "%d %s ago" % (d, "week" if d == 1 else "weeks")
+        d = diff.days
+        if d > 0: return "%d %s ago" % (d, "day" if d == 1 else "days")
+        d = diff.seconds // 3600
+        if d > 0: return "%d %s ago" % (d, "hour" if d == 1 else "hours")
+        d = diff.seconds // 60
+        if d > 0: return "%d %s ago" % (d, "minute" if d == 1 else "minutes")
+        d = diff.seconds
+        if d > 0: return "%d %s ago" % (d, "second" if d == 1 else "seconds")
+    except Exception as e:
+        logger.exception(e)
+    return "just now"
 
 
 if __name__ == "__main__":
