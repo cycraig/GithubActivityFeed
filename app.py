@@ -3,9 +3,9 @@ import sys
 import logging
 import dateutil.parser as dt
 from datetime import datetime, timezone
-from dotenv import load_dotenv
 from flask import Flask, flash, render_template, request, g, session, redirect, url_for, render_template_string, jsonify
 
+from config import Config
 from service.github import GitHubAPI, GitHubAPIError
 from service.github_event_template import github_event_templates, github_event_icons
 
@@ -14,19 +14,15 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG,
                     format='[%(asctime)s] %(name)s %(levelname)s:%(message)s')
 
-# GitHub API
-load_dotenv()
-GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID')
-GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET')
-if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
-    logger.error('Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env or environment variables')
-    sys.exit(-1)
-github = GitHubAPI(GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET)
-
 # Flask
 app = Flask(__name__)
-app.config.from_object(__name__)
-app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+app.config.from_object(Config)
+
+# GitHub API
+if not app.config.get('GITHUB_CLIENT_ID',None) or not app.config.get('GITHUB_CLIENT_SECRET', None):
+    logger.error('Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env or environment variables')
+    sys.exit(-1)
+github = GitHubAPI(app.config['GITHUB_CLIENT_ID'], app.config['GITHUB_CLIENT_SECRET'])
 
 # TODO: use a database
 users = {}
