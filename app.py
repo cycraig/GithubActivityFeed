@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from flask import Flask, flash, render_template, request, g, session, redirect, url_for, render_template_string, jsonify
 
-from github import GitHubAPI, GitHubAPIError
-from github_event_template import github_event_templates, github_event_icons
+from service.github import GitHubAPI, GitHubAPIError
+from service.github_event_template import github_event_templates, github_event_icons
 
 # Logging
 logger = logging.getLogger(__name__)
