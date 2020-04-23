@@ -121,12 +121,13 @@ def events():
         target_user = "cycraig"
 
     try:
+        user_details = github.get_user(target_user, token)
         events = github.get_user_received_events(target_user, token)
-        return render_template("events.html", events=events, target_user=target_user, event_templates=github_event_templates, event_icons=github_event_icons)
+        return render_template("events.html", events=events, target_user=target_user, user_details=user_details, event_templates=github_event_templates, event_icons=github_event_icons)
     except Exception as e:
         logger.exception(e)
         flash(str(e))
-        return render_template("events.html", events=None, target_user=target_user)
+        return render_template("events.html", events=None, target_user=target_user, user_details=user_details)
 
 
 @app.template_filter()

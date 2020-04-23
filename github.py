@@ -1,7 +1,7 @@
 import re
 import logging
 import requests
-from typing import List
+from typing import List, Dict
 from urllib.parse import urlencode, parse_qs
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,31 @@ class GitHubAPI(object):
         # TODO: compile once, re-use pattern instance
         pattern = re.compile(r"^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$")
         return pattern.match(username) is not None
+
+    def get_user(self, user: str, token: str = None) -> Dict:
+        """Returns JSON-encoded GitHub user details as a dictionary.
+
+        If the token is None, only public events will be returned.
+
+        GET /users/:username
+
+        See: https://developer.github.com/v3/users/
+        """
+        user = user.strip()
+        logger.debug("GitHub API requesting user details for '%s'" % user)
+
+        # validate username
+        # TODO: check if more aggressive sanitisation is required on the user string
+        if not user:
+            raise ValueError("user cannot be empty")
+        if not self.validate_username(user.strip()):
+            raise ValueError("invalid username '%s'" % user)
+
+        # get events
+        path = "/users/%s" % user
+        response = self.get(path, token)
+        checkResponse(response)
+        return response.json()
 
     def get_user_received_events(self, user: str, token: str = None) -> List:
         """Returns a list of dictionary JSON-encoded GitHub events for the user.

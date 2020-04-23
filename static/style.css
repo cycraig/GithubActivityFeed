@@ -28,6 +28,7 @@ main.container {
     border-radius: 10px;
     border: 1px solid #d4d8dd;
     background-color: #fff;
+    width: 100%;
 }
 
 .event-icon {
@@ -56,6 +57,18 @@ img.avatar {
     line-height: 1;
     vertical-align: middle;
     border-radius: 3px;
+}
+
+.user-avatar.avatar {
+    margin-right: 10px;
+}
+
+.user-header {
+    display: flex;
+    align-items: baseline;
+    margin: auto;
+    width: fit-content;
+    margin-top: 10px;
 }
 
 .comment {
