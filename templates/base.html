@@ -100,5 +100,7 @@
       $('[data-toggle="popover"]').popover()
     })
   </script>
+  <!-- Custom scripts at the end so they have JQuery -->
+  {% block script %}{% endblock %}
 </body>
 </html>

@@ -50,118 +50,131 @@
       </div>
     </div>
     {% endfor %}
-    <script>
-      // Slow!
-      let events = {{ events | tojson|safe }}
-
-      let form = document.forms.search;
-      let search = document.getElementById("search-text")
-      form.onsubmit = filter;
-      search.onsearch = clearFilter;
-
-      function clearFilter() {
-        // Show all elements hidden by the filter
-        events.filter(function(event) {
-          const id = event['id']
-          const elem = $("#"+id)
-          if (elem) { // element may not exist due to reminders
-            elem.show()
-          }
-        });
-      }
-
-      function filter() {
-        // TODO: formData is always empty, weird...
-        let formData = new FormData(form);
-        let query = formData.get("search-text")
-
-        if(query) {
-          query = query.trim().toLowerCase()
-        } else {
-          clearFilter()
-          return false
-        }
-        console.log("Filter by: "+query)
-
-        // Client-side search filtering since we already have all the events...
-        events.filter(function(event) {
-          const id = event['id']
-          // Searching the DOM is SLOW but it has the formatted event descriptions which the events JSON lack.
-          // TODO: insert the descriptions in the events JSON server-side?
-          const elem = $("#"+id)
-          if (elem) { // element may not exist due to reminders
-            const text = elem.text()
-
-            // hide elements not including the search string
-            if(query && !text.toLowerCase().includes(query)) {
-              elem.hide(200)
-            } else {
-              elem.show()
-            }
-          }
-        });
-
-        // Never submit to the server...
-        return false
-      }
-
-      function unsnooze(event_id) {
-        // Un-snoozes an event, which puts it back in the event list.
-        console.log("Unsnoozing event "+event_id)
-
-        // asynchronous unsnooze API POST
-        postJSON("/unsnooze", JSON.stringify({'id': event_id}), function () {
-            console.log("Unsnoozed event! " + event_id)
-        });
-
-        removeEventElement(event_id)
-      }
-
-      function snooze(event_id) {
-        // Snooze an event by searching through the raw list of events and sending it as a JSON payload...
-        console.log("Snoozing event "+event_id)
-
-        // SLOW!
-        pos = 0
-        for(e in events) {
-          if(events[e]['id'] == event_id) {
-            break;
-          }
-          pos++
-        }
-        if(pos >= events.length) {
-          console.error("Event id not found! " + event_id)
-          return;
-        }
-
-        // asynchronous snooze API POST
-        postJSON("/snooze", JSON.stringify(events[pos]), function () {
-            console.log("Snoozed event! " + event_id)
-        });
-        
-        removeEventElement(event_id)
-      }
-
-      function postJSON(url, json, callback) {
-        // asynchronous API POST
-        $.ajax({
-          type: "POST",
-          contentType: "application/json; charset=utf-8",
-          url: url,
-          data: json,
-          success: callback,
-          dataType: "json"
-        });
-      }
-
-      function removeEventElement(event_id) {
-        // remove event element from the DOM
-        var elem = document.getElementById(event_id)
-        elem.parentNode.removeChild(elem)
-        $(".popover.show").popover('hide');
-      }
-    </script>
   {% else %}
     No {% if snoozed %} reminders {% else %} events {% endif %} for {{ target_user }}!
   {% endif %}
+{% endblock %}
+
+
+{% block script %}
+{% if events %}
+<script>
+  // Slow!
+  let events = {{ events | tojson|safe }}
+
+  let form = document.forms.search;
+  form.onsubmit = filter;
+  // Clear filter on x-click
+  $("#search-text").on('search', clearFilter)
+
+  function clearFilter() {
+    // Show all elements hidden by the filter
+    // NOTE: this triggers when the x is clicked AND on a search
+    let formData = new FormData(form)
+    let query = formData.get("search-text")
+    if(query) { // don't clear if there is a search term
+      return
+    }
+    console.log("Clearing filter...")
+    events.filter(function(event) {
+      const id = event['id']
+      const elem = $("#"+id)
+      if (elem) { // element may not exist due to reminders
+        elem.show()
+      }
+    });
+  }
+
+  function filter() {
+    // TODO: formData is always empty, weird...
+    let formData = new FormData(form)
+    let query = formData.get("search-text")
+
+    if(query) {
+      query = query.trim().toLowerCase()
+    } else {
+      clearFilter()
+      return false
+    }
+    console.log("Filter by: "+query)
+
+    // Client-side search filtering since we already have all the events...
+    events.filter(function(event) {
+      const id = event['id']
+      // Searching the DOM is SLOW but it has the formatted event descriptions which the events JSON lack.
+      // TODO: insert the descriptions in the events JSON server-side?
+      const elem = $("#"+id)
+      if (elem) { // element may not exist due to reminders
+        const text = elem.text()
+
+        // hide elements not including the search string
+        if(query && !text.toLowerCase().includes(query)) {
+          elem.hide(200)
+        } else {
+          elem.show()
+        }
+      }
+    });
+
+    // Never submit to the server...
+    return false
+  }
+
+  function unsnooze(event_id) {
+    // Un-snoozes an event, which puts it back in the event list.
+    console.log("Unsnoozing event "+event_id)
+
+    // asynchronous unsnooze API POST
+    postJSON("/unsnooze", JSON.stringify({'id': event_id}), function () {
+        console.log("Unsnoozed event! " + event_id)
+    });
+
+    removeEventElement(event_id)
+  }
+
+  function snooze(event_id) {
+    // Snooze an event by searching through the raw list of events and sending it as a JSON payload...
+    console.log("Snoozing event "+event_id)
+
+    // SLOW!
+    pos = 0
+    for(e in events) {
+      if(events[e]['id'] == event_id) {
+        break;
+      }
+      pos++
+    }
+    if(pos >= events.length) {
+      console.error("Event id not found! " + event_id)
+      return;
+    }
+
+    // asynchronous snooze API POST
+    postJSON("/snooze", JSON.stringify(events[pos]), function () {
+        console.log("Snoozed event! " + event_id)
+    });
+    
+    removeEventElement(event_id)
+  }
+
+  function postJSON(url, json, callback) {
+    // asynchronous API POST
+    $.ajax({
+      type: "POST",
+      contentType: "application/json; charset=utf-8",
+      url: url,
+      data: json,
+      success: callback,
+      dataType: "json"
+    });
+  }
+
+  function removeEventElement(event_id) {
+    // remove event element from the DOM
+    var elem = document.getElementById(event_id)
+    elem.parentNode.removeChild(elem)
+    $(".popover.show").popover('hide');
+  }
+</script>
+{% endif %}
 {% endblock %}
