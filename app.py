@@ -29,6 +29,13 @@ if not app.config.get('GITHUB_CLIENT_ID', None) or not app.config.get('GITHUB_CL
 github = GitHubAPI(app.config['GITHUB_CLIENT_ID'],
                    app.config['GITHUB_CLIENT_SECRET'])
 
+# SQLAlchemy (needs to be run on import for pythonanywher# initialise database and start app
+db.app = app
+db.init_app(app)
+# create database tables for models
+with app.app_context():
+    db.create_all()
+
 
 @app.before_request
 def before_request():
@@ -287,14 +294,6 @@ def handle_http_exception(error):
 
 
 def run():
-    # initialise database and start app
-    db.app = app
-    db.init_app(app)
-
-    # create database tables for models
-    with app.app_context():
-        db.create_all()
-
     app.run(debug=True)
 
 
