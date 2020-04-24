@@ -198,11 +198,11 @@ def events():
     try:
         user_details = github.get_user(target_user, token)
         events = list(get_events(target_user, g.user))
-        return render_template("events.html", events=events, target_user=target_user, user_details=user_details, event_templates=github_event_templates, event_icons=github_event_icons, snoozed=False)
+        return render_template("events.html", events=events, target_user=target_user, user_details=user_details, event_templates=github_event_templates, event_icons=github_event_icons, snoozed=False, logged_in=g.user!=None)
     except Exception as e:
         logger.exception(e)
         flash(str(e))
-        return render_template("events.html", events=None, target_user=target_user, user_details=None, snoozed=False)
+        return render_template("events.html", events=None, target_user=target_user, user_details=None, snoozed=False, logged_in=g.user!=None)
 
 
 @app.route("/reminders", methods=["GET"])
@@ -218,11 +218,11 @@ def reminders():
             g.user.github_login, g.user.github_access_token)
         events_objects = get_snoozed_events(g.user)
         snoozed_events = [e.event_json for e in events_objects]
-        return render_template("events.html", events=snoozed_events, target_user=g.user.github_login, user_details=user_details, event_templates=github_event_templates, event_icons=github_event_icons, snoozed=True)
+        return render_template("events.html", events=snoozed_events, target_user=g.user.github_login, user_details=user_details, event_templates=github_event_templates, event_icons=github_event_icons, snoozed=True, logged_in=g.user!=None)
     except Exception as e:
         logger.exception(e)
         flash(str(e))
-        return render_template("events.html", events=None, target_user=g.user.github_login, user_details=None, snoozed=True)
+        return render_template("events.html", events=None, target_user=g.user.github_login, user_details=None, snoozed=True, logged_in=g.user!=None)
 
 
 @app.template_filter()

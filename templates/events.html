@@ -30,6 +30,7 @@
           {{ event_templates[event['type']](event)|safe }}
           </span>
         </div>
+        {% if logged_in %}
         {% if snoozed %}
         <span>
           <a tabindex="0" class="btn btn-snooze" role="button" data-toggle="popover" 
@@ -46,6 +47,7 @@
           <i class="far fa-clock fa-lg"></i>
           </a>
         </span>
+        {% endif %}
         {% endif %}
       </div>
     </div>
