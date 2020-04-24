@@ -8,6 +8,8 @@ from flask import Flask, flash, render_template, request, g, session, redirect, 
 from config import Config
 from service.github import GitHubAPI, GitHubAPIError
 from service.github_event_template import github_event_templates, github_event_icons
+from models.db import db
+from models.user import User
 
 # Logging
 logger = logging.getLogger(__name__)
@@ -24,19 +26,11 @@ if not app.config.get('GITHUB_CLIENT_ID',None) or not app.config.get('GITHUB_CLI
     sys.exit(-1)
 github = GitHubAPI(app.config['GITHUB_CLIENT_ID'], app.config['GITHUB_CLIENT_SECRET'])
 
-# TODO: use a database
-users = {}
-id = 0
-
-
 @app.before_request
 def before_request():
-    global users
     g.user = None
     if 'user_id' in session:
-        # User.query.get(session['user_id'])
-        g.user = users.get(session['user_id'], None)
-    # print(g.user)
+        g.user = User.query.get(session['user_id'])
 
 
 @app.after_request
@@ -52,42 +46,44 @@ def index():
 
 @app.route('/oauth-callback')
 def oauth_callback():
-    global id
-    global users
+    # Exchange code for access_token
     code = request.args.get('code')
     access_token = github.oauth_callback(code)
     next_url = request.args.get('next') or url_for('index')
     if access_token is None:
         return redirect(next_url)
 
-    #user = User.query.filter_by(github_access_token=access_token).first()
-    user = None
-    # print(users)
-    for u in users:
-        if users[u]['github_access_token'] == access_token:
-            user = users[u]
-            break
-    if user is None:
-        # User(access_token)
-        user = {'user_id': id, 'github_access_token': access_token}
-        # db_session.add(user)
-        users[id] = user
-        id += 1
-
-    #user.github_access_token = access_token
-    g.user = user
+    # Retrieve an existing user by their access token
     github_user = github.get('/user', access_token).json()
-    user['github_login'] = github_user['login']
+    user = User.query.filter_by(github_access_token=access_token).first()
+    if user is None:
+        # Search by github_id in case the access_token changed
+        id = github_user['id']
+        user = User.query.filter_by(github_id=id).first()
+        if user is None:
+            # Otherwise create a new user
+            user = User(access_token)
+            user.github_id = github_user['id']
+            db.session.add(user)
+    
+    # update user information
+    user.github_email = github_user['email']
+    user.github_login = github_user['login']
+    user.github_access_token = access_token
 
-    # db_session.commit()
-    session['user_id'] = user['user_id']
+    # persist
+    db.session.commit()
+
+    # store user in session
+    g.user = user
+    session['user_id'] = user.github_id
     return redirect(next_url)
 
 
 @app.route('/login')
 def login():
-    user_id = session.get('user_id', None)
-    if user_id is None or not user_id in users:
+    session.permanent = True
+    if g.user is None:
         return redirect(github.oauth_url())
     else:
         return redirect(url_for('events'))
@@ -110,9 +106,9 @@ def events():
     # If absent default to the logged-in user, otherwise cycraig
     target_user = request.args.get("user", None)
     if g.user:
-        token = g.user.get("github_access_token", None)
+        token = g.user.github_access_token
         if target_user is None:
-            target_user = g.user.get("github_login", None)
+            target_user = g.user.github_login
     if target_user is None:
         target_user = "cycraig"
 
@@ -155,6 +151,16 @@ def datetimesince(datestr):
         logger.exception(e)
     return "just now"
 
+def run():
+    # initialise database and start app
+    db.app = app
+    db.init_app(app)
+
+    # create database tables for models
+    with app.app_context():
+        db.create_all()  
+
+    app.run(debug=True)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    run()
