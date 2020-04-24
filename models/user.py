@@ -1,7 +1,9 @@
 from .db import db
 
 class User(db.Model):
-
+    '''
+    Stores an OAuth-authenticated GitHub user.
+    '''
     __tablename__ = 'users'
 
     github_id = db.Column(db.Integer, primary_key=True)

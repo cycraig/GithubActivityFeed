@@ -13,7 +13,7 @@
   </div>
   {% if events %}
     {% for event in events %}
-    <div class="outer-event-container">
+    <div id="{{ event['id'] }}" class="outer-event-container">
       <i class="event-icon fa-lg {{ event_icons[event['type']] }}"></i>
       <div class="event-container">
         <span class="mr-3">
@@ -30,10 +30,85 @@
           {{ event_templates[event['type']](event)|safe }}
           </span>
         </div>
+        {% if snoozed %}
+        <span>
+          <a tabindex="0" class="btn btn-snooze" role="button" data-toggle="popover" 
+          data-trigger="hover" data-placement="bottom"  data-content="Cancel reminder"
+        onclick="unsnooze({{ event['id'] }})">
+          <i class="fas fa-check fa-lg"></i>
+          </a>
+        </span>
+        {% else %}
+        <span>
+          <a tabindex="0" class="btn btn-snooze" role="button" data-toggle="popover" 
+          data-trigger="hover" data-placement="bottom"  data-content="Snooze event"
+        onclick="snooze({{ event['id'] }})">
+          <i class="far fa-clock fa-lg"></i>
+          </a>
+        </span>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
+    <script>
+      // Slow!
+      let events = {{ events | tojson|safe }}
+
+      function unsnooze(event_id) {
+        // Un-snoozes an event, which puts it back in the event list.
+        console.log("Unsnoozing event "+event_id)
+
+        // asynchronous unsnooze API POST
+        $.ajax({
+          type: "POST",
+          contentType: "application/json; charset=utf-8",
+          url: "/unsnooze",
+          data: JSON.stringify({'id': event_id}),
+          success: function () {
+            console.log("unsnoozed event! " + event_id)
+          },
+          dataType: "json"
+        });
+
+        // remove event element from the DOM
+        var elem = document.getElementById(event_id)
+        elem.parentNode.removeChild(elem)
+      }
+
+      function snooze(event_id) {
+        // Snooze an event by searching through the raw list of events and sending it as a JSON payload...
+        console.log("Snoozing event "+event_id)
+        // SLOW!
+        pos = 0
+        for(e in events) {
+          if(events[e]['id'] == event_id) {
+            break;
+          }
+          pos++
+        }
+        if(pos >= events.length) {
+          console.error("Event id not found! " + event_id)
+          return;
+        }
+
+        // asynchronous snooze API POST
+        $.ajax({
+          type: "POST",
+          contentType: "application/json; charset=utf-8",
+          url: "/snooze",
+          data: JSON.stringify(events[pos]),
+          success: function () {
+            console.log("Snoozed event! " + event_id)
+          },
+          dataType: "json"
+        });
+        
+        // remove event element from the DOM
+        var elem = document.getElementById(event_id)
+        elem.parentNode.removeChild(elem)
+      }
+    </script>
   {% else %}
-    No events for {{ target_user }}!
+    No {% if snoozed %} reminders {% else %} events {% endif %} for {{ target_user }}!
   {% endif %}
 {% endblock %}

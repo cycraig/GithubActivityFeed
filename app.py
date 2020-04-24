@@ -10,6 +10,7 @@ from service.github import GitHubAPI, GitHubAPIError
 from service.github_event_template import github_event_templates, github_event_icons
 from models.db import db
 from models.user import User
+from models.event import Event
 
 # Logging
 logger = logging.getLogger(__name__)
@@ -21,10 +22,13 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 # GitHub API
-if not app.config.get('GITHUB_CLIENT_ID',None) or not app.config.get('GITHUB_CLIENT_SECRET', None):
-    logger.error('Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env or environment variables')
+if not app.config.get('GITHUB_CLIENT_ID', None) or not app.config.get('GITHUB_CLIENT_SECRET', None):
+    logger.error(
+        'Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env or environment variables')
     sys.exit(-1)
-github = GitHubAPI(app.config['GITHUB_CLIENT_ID'], app.config['GITHUB_CLIENT_SECRET'])
+github = GitHubAPI(app.config['GITHUB_CLIENT_ID'],
+                   app.config['GITHUB_CLIENT_SECRET'])
+
 
 @app.before_request
 def before_request():
@@ -39,7 +43,7 @@ def after_request(response):
     return response
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
 
@@ -65,7 +69,7 @@ def oauth_callback():
             user = User(access_token)
             user.github_id = github_user['id']
             db.session.add(user)
-    
+
     # update user information
     user.github_email = github_user['email']
     user.github_login = github_user['login']
@@ -97,7 +101,85 @@ def logout():
     return redirect(url_for('index'))
 
 
-@app.route("/events")
+def get_snoozed_events(user: User):
+    '''
+    Returns the snoozed event objects for the user.
+    '''
+    if not user:
+        return []
+    snoozed_events = Event.query.filter_by(github_id=user.github_id).all()
+    return snoozed_events
+
+
+def get_events(target_user: str, user: User):
+    '''
+    Returns a list of JSON-encoded events for the user with snoozed events filtered out.
+
+    TODO: slow...
+    '''
+    token = None
+    if user:
+        token = user.github_access_token
+    events = github.get_user_received_events(target_user, token)
+
+    # filter out snoozed events from the list
+    snoozed_events = get_snoozed_events(user)
+    snoozed_events_ids = set()
+    for se in snoozed_events:
+        snoozed_events_ids.add(se.event_id)
+    return filter(lambda e: e['id'] not in snoozed_events_ids, events)
+
+
+@app.route("/snooze", methods=["POST"])
+def snooze():
+    '''Snoozes an event: removes it from the event list and adds it to the user's reminders.
+    '''
+    if not (request.content_type.startswith('application/json')):
+        raise HTTPException("Content type must be application/json")
+    if not g.user:
+        raise HTTPException("Not logged in", 401)
+    data = request.json
+    try:
+        logger.debug("Snoozing event for user %s: %s" %
+                     (g.user.github_login, str(data)))
+        if not 'id' in data:
+            raise HTTPException("Malformed event", 400)
+        event = Event(data['id'], data, g.user.github_id)
+        db.session.add(event)
+        db.session.commit()
+    except Exception as e:
+        logger.exception("failed to snooze event", e)
+        raise HTTPException("failed to snooze event", 500, request.json)
+    resp = jsonify(success=True)
+    return resp
+
+@app.route("/unsnooze", methods=["POST"])
+def unsnooze():
+    '''Unsnoozes an event: removes it from the list of reminders and shows it in the event list.
+    '''
+    if not (request.content_type.startswith('application/json')):
+        raise HTTPException("Content type must be application/json")
+    if not g.user:
+        raise HTTPException("Not logged in", 401)
+    data = request.json
+    try:
+        logger.debug("Unsnoozing event for user %s: %s" %
+                     (g.user.github_login, str(data)))
+        if not 'id' in data:
+            raise HTTPException("Malformed event", 400)
+        event = Event.query.get(data['id'])
+        if not event:
+            raise HTTPException("No such event found", 404)
+        db.session.delete(event)
+        db.session.commit()
+    except Exception as e:
+        logger.exception("failed to unsnooze event", e)
+        raise HTTPException("failed to unsnooze event", 500, request.json)
+    resp = jsonify(success=True)
+    return resp
+
+
+@app.route("/events", methods=["GET"])
 def events():
     # TODO: an OAuth token still doesn't retrieve private events?
     token = None
@@ -114,12 +196,31 @@ def events():
 
     try:
         user_details = github.get_user(target_user, token)
-        events = github.get_user_received_events(target_user, token)
-        return render_template("events.html", events=events, target_user=target_user, user_details=user_details, event_templates=github_event_templates, event_icons=github_event_icons)
+        events = list(get_events(target_user, g.user))
+        return render_template("events.html", events=events, target_user=target_user, user_details=user_details, event_templates=github_event_templates, event_icons=github_event_icons, snoozed=False)
     except Exception as e:
         logger.exception(e)
         flash(str(e))
-        return render_template("events.html", events=None, target_user=target_user, user_details=user_details)
+        return render_template("events.html", events=None, target_user=target_user, user_details=None, snoozed=False)
+
+
+@app.route("/reminders", methods=["GET"])
+def reminders():
+    '''Displays a list of snoozed events for the logged-in user.
+    '''
+    if not g.user:
+        raise HTTPException("Not logged in", 401)
+
+    try:
+        user_details = github.get_user(
+            g.user.github_login, g.user.github_access_token)
+        events_objects = get_snoozed_events(g.user)
+        snoozed_events = [e.event_json for e in events_objects]
+        return render_template("events.html", events=snoozed_events, target_user=g.user.github_login, user_details=user_details, event_templates=github_event_templates, event_icons=github_event_icons, snoozed=True)
+    except Exception as e:
+        logger.exception(e)
+        flash(str(e))
+        return render_template("events.html", events=None, target_user=g.user.github_login, user_details=None, snoozed=True)
 
 
 @app.template_filter()
@@ -134,22 +235,54 @@ def datetimesince(datestr):
         now = datetime.now(timezone.utc)
         diff = now - datestr
         d = diff.days // 365
-        if d > 0: return "%d %s ago" % (d, "year" if d == 1 else "years")
+        if d > 0:
+            return "%d %s ago" % (d, "year" if d == 1 else "years")
         d = diff.days // 30
-        if d > 0: return "%d %s ago" % (d, "month" if d == 1 else "months")
+        if d > 0:
+            return "%d %s ago" % (d, "month" if d == 1 else "months")
         d = diff.days // 7
-        if d > 0: return "%d %s ago" % (d, "week" if d == 1 else "weeks")
+        if d > 0:
+            return "%d %s ago" % (d, "week" if d == 1 else "weeks")
         d = diff.days
-        if d > 0: return "%d %s ago" % (d, "day" if d == 1 else "days")
+        if d > 0:
+            return "%d %s ago" % (d, "day" if d == 1 else "days")
         d = diff.seconds // 3600
-        if d > 0: return "%d %s ago" % (d, "hour" if d == 1 else "hours")
+        if d > 0:
+            return "%d %s ago" % (d, "hour" if d == 1 else "hours")
         d = diff.seconds // 60
-        if d > 0: return "%d %s ago" % (d, "minute" if d == 1 else "minutes")
+        if d > 0:
+            return "%d %s ago" % (d, "minute" if d == 1 else "minutes")
         d = diff.seconds
-        if d > 0: return "%d %s ago" % (d, "second" if d == 1 else "seconds")
+        if d > 0:
+            return "%d %s ago" % (d, "second" if d == 1 else "seconds")
     except Exception as e:
         logger.exception(e)
     return "just now"
+
+
+class HTTPException(Exception):
+    status_code = 400
+
+    def __init__(self, message, status_code=None, payload=None):
+        Exception.__init__(self)
+        self.message = message
+        if status_code is not None:
+            self.status_code = status_code
+        self.payload = payload
+
+    def to_dict(self):
+        rv = dict(self.payload or ())
+        rv['message'] = self.message
+        return rv
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(error):
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    flash(str(response))
+    return response
+
 
 def run():
     # initialise database and start app
@@ -158,9 +291,10 @@ def run():
 
     # create database tables for models
     with app.app_context():
-        db.create_all()  
+        db.create_all()
 
     app.run(debug=True)
+
 
 if __name__ == "__main__":
     run()

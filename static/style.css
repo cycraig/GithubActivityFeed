@@ -91,3 +91,12 @@ img.avatar {
     flex-direction: row;
     align-items: center;
 }
+
+.btn.btn-snooze, .btn.btn-snooze:focus, .btn.btn-snooze:active  {
+    padding: 0;
+    text-align: center;
+    border: none;
+    background: none;
+    background-color: transparent;
+    color: #c5c5c5;
+}
