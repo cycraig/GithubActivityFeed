@@ -10,13 +10,14 @@ except Exception:
     print("Failed to load dotenv!", file=sys.stderr)
     pass
 
-
 class Config(object):
     """
     Flask configuration variables
     """
-    SECRET_KEY = os.environ.get('SECRET_KEY') or b'#&TGafg7(@0\\'
+    SECRET_KEY = os.getenv('SECRET_KEY') or b'#&TGafg7(@0\\'
     GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID')
     GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET')
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///' + os.path.join(basedir, 'data.db')
+    DEBUG = os.getenv('DEBUG') == '1'
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL') or 'sqlite:///' + os.path.join(basedir, 'data.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = os.getenv('DEBUG') == '1'
