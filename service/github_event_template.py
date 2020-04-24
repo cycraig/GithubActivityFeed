@@ -60,9 +60,10 @@ github_event_templates = {
 
 github_event_icons = {
     'CommitCommentEvent': 'far fa-comment',
-    'CreateEvent_repository': 'far fa-plus-square',
-    'CreateEvent_tag': 'fas fa-tag',
-    'CreateEvent_branch': 'fas fa-code-branch',
+    'CreateEvent': 'far fa-plus-square',
+    #'CreateEvent_repository': 'far fa-plus-square',
+    #'CreateEvent_tag': 'fas fa-tag',
+    #'CreateEvent_branch': 'fas fa-code-branch',
     'DeleteEvent': 'fas fa-minus-square',
     'FollowEvent': 'fas fa-user-friends',
     'ForkEvent': 'fas fa-share-alt',
