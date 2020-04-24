@@ -41,7 +41,7 @@
         {% else %}
         <span>
           <a tabindex="0" class="btn btn-snooze" role="button" data-toggle="popover" 
-          data-trigger="hover" data-placement="bottom"  data-content="Snooze event"
+          data-trigger="hover" data-placement="bottom"  data-content="Set reminder"
         onclick="snooze({{ event['id'] }})">
           <i class="far fa-clock fa-lg"></i>
           </a>
@@ -59,25 +59,17 @@
         console.log("Unsnoozing event "+event_id)
 
         // asynchronous unsnooze API POST
-        $.ajax({
-          type: "POST",
-          contentType: "application/json; charset=utf-8",
-          url: "/unsnooze",
-          data: JSON.stringify({'id': event_id}),
-          success: function () {
-            console.log("unsnoozed event! " + event_id)
-          },
-          dataType: "json"
+        postJSON("/unsnooze", JSON.stringify({'id': event_id}), function () {
+            console.log("Unsnoozed event! " + event_id)
         });
 
-        // remove event element from the DOM
-        var elem = document.getElementById(event_id)
-        elem.parentNode.removeChild(elem)
+        removeEventElement(event_id)
       }
 
       function snooze(event_id) {
         // Snooze an event by searching through the raw list of events and sending it as a JSON payload...
         console.log("Snoozing event "+event_id)
+
         // SLOW!
         pos = 0
         for(e in events) {
@@ -92,20 +84,30 @@
         }
 
         // asynchronous snooze API POST
+        postJSON("/snooze", JSON.stringify(events[pos]), function () {
+            console.log("Snoozed event! " + event_id)
+        });
+        
+        removeEventElement(event_id)
+      }
+
+      function postJSON(url, json, callback) {
+        // asynchronous API POST
         $.ajax({
           type: "POST",
           contentType: "application/json; charset=utf-8",
-          url: "/snooze",
-          data: JSON.stringify(events[pos]),
-          success: function () {
-            console.log("Snoozed event! " + event_id)
-          },
+          url: url,
+          data: json,
+          success: callback,
           dataType: "json"
         });
-        
+      }
+
+      function removeEventElement(event_id) {
         // remove event element from the DOM
         var elem = document.getElementById(event_id)
         elem.parentNode.removeChild(elem)
+        $(".popover.show").popover('hide');
       }
     </script>
   {% else %}
