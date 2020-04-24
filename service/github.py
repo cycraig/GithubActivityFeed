@@ -10,15 +10,16 @@ GITHUB_URL = "https://github.com"
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_OAUTH_URL = GITHUB_URL + "/login/oauth"
 
+
 class GitHubAPI(object):
     """
-    Barebones wrapper for performing authorised GitHub API requests.
+    Barebones wrapper for performing authorised GitHub API requests with access tokens.
     """
 
     def __init__(self, client_id: str = None, client_secret: str = None):
         self.client_id = client_id
         self.client_secret = client_secret
-    
+
     def oauth_url(self, scopes: str = None, redirect_uri: str = None, state: str = None) -> str:
         """Returns a URL for GitHub OAuth authentication that the user should be redirected to.
 
@@ -51,8 +52,9 @@ class GitHubAPI(object):
         params['code'] = code
         params['client_id'] = self.client_id
         params['client_secret'] = self.client_secret
-        
-        logger.debug("GitHub API OAuth exchanging code for access token %s" % url)
+
+        logger.debug(
+            "GitHub API OAuth exchanging code for access token %s" % url)
         response = requests.post(url, data=params)
         content = parse_qs(response.content)
         logger.debug("response.content = %s", content)
@@ -70,7 +72,7 @@ class GitHubAPI(object):
         - cannot begin or end with a hyphen.
         - has a maximum length of 39 characters.
         """
-        # Credit to https://github.com/shinnn/github-username-regex for regex 
+        # Credit to https://github.com/shinnn/github-username-regex for regex
         # TODO: compile once, re-use pattern instance
         pattern = re.compile(r"^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$")
         return pattern.match(username) is not None
@@ -138,14 +140,19 @@ class GitHubAPI(object):
         checkResponse(response)
         return response
 
+
 def checkResponse(response: requests.models.Response):
+    """Raises a GitHubAPIError if the response does not have an ok status code or the content type is not JSON.
+    """
     if not response or not response.ok or not 'application/json' in response.headers.get('Content-Type', ''):
         emsg = None
         try:
-            emsg = "%s: %s" % (response.status_code, response.json()['message'])
+            emsg = "%s: %s" % (response.status_code,
+                               response.json()['message'])
         except Exception:
             pass
         raise GitHubAPIError(emsg)
+
 
 class GitHubAPIError(Exception):
     pass

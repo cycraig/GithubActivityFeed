@@ -45,7 +45,8 @@ def after_request(response):
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html")
+    #return render_template("index.html")
+    return redirect(url_for('events'))
 
 
 @app.route('/oauth-callback')
@@ -209,7 +210,8 @@ def reminders():
     '''Displays a list of snoozed events for the logged-in user.
     '''
     if not g.user:
-        raise HTTPException("Not logged in", 401)
+        flash("Login to access reminders")
+        return redirect(url_for('index'))
 
     try:
         user_details = github.get_user(
