@@ -38,14 +38,18 @@
         </li>
         {% else %}
         <li class="nav-item">
+          <span class="login-holder">
           <a class="nav-link" href="/login">Login</a>
+          <a tabindex="0" class="btn btn-secondary login-info" role="button" data-toggle="popover" 
+          data-trigger="hover focus" data-placement="bottom"  data-content="Login to set event reminders.">?</a>
+          </span>
         </li>
         {% endif %}
       </ul>
       
       <form class="form-inline my-2 my-lg-0">
         <input class="form-control mr-sm-2" type="text" placeholder="Search" aria-label="Search">
-        <button class="btn btn-secondary my-2 my-sm-0" type="submit">Search</button>
+        <button class="btn btn-secondary my-2 my-sm-0" type="submit"><i class="fas fa-search"></i></button>
       </form>
     </div>
   </nav>
@@ -84,6 +88,11 @@
   <!-- FontAwesome -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/js/all.min.js" 
     crossorigin="anonymous"></script>
-  
+  <script>
+    // Enable popovers
+    $(function () {
+      $('[data-toggle="popover"]').popover()
+    })
+  </script>
 </body>
 </html>
