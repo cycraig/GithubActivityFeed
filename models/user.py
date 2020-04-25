@@ -1,5 +1,6 @@
 from .db import db
 
+
 class User(db.Model):
     '''
     Stores an OAuth-authenticated GitHub user.
@@ -15,4 +16,8 @@ class User(db.Model):
         self.github_access_token = github_access_token
 
     def __repr__(self):
-        return '<User {} {} {} {}>'.format(self.github_id, self.github_login, self.github_email, self.github_access_token)    
+        return '<User {} {} {} {}>'.format(
+            self.github_id,
+            self.github_login,
+            self.github_email,
+            self.github_access_token)

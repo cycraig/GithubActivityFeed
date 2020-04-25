@@ -13,15 +13,18 @@ GITHUB_OAUTH_URL = GITHUB_URL + "/login/oauth"
 
 class GitHubAPI(object):
     """
-    Barebones wrapper for performing authorised GitHub API requests with access tokens.
+    Barebones wrapper for performing authorised GitHub API requests with
+    access tokens.
     """
 
     def __init__(self, client_id: str = None, client_secret: str = None):
         self.client_id = client_id
         self.client_secret = client_secret
 
-    def oauth_url(self, scopes: str = None, redirect_uri: str = None, state: str = None) -> str:
-        """Returns a URL for GitHub OAuth authentication that the user should be redirected to.
+    def oauth_url(self, scopes: str = None, redirect_uri: str = None,
+                  state: str = None) -> str:
+        """Returns a URL for GitHub OAuth authentication that the user should
+        be redirected to.
 
         See: https://developer.github.com/apps/building-oauth-apps/authorizing-oauth-apps/#web-application-flow
         """
@@ -41,11 +44,11 @@ class GitHubAPI(object):
 
         Callback for the GitHub OAuth system.
 
-        Receives a 'code' in the request parameters from GitHub, which is then exchanged for
-        an access token with a second POST to GitHub.
+        Receives a 'code' in the request parameters from GitHub, which is then
+        exchanged for an access token with a second POST to GitHub.
 
-        The access token can then be stored and used in subsequent API calls to authenticate
-        as that user (with the given scopes).
+        The access token can then be stored and used in subsequent API calls
+        to authenticate as that user (with the given scopes).
         """
         url = GITHUB_OAUTH_URL + '/access_token'
         params = {}
@@ -88,18 +91,12 @@ class GitHubAPI(object):
         """
         user = user.strip()
         logger.debug("GitHub API requesting user details for '%s'" % user)
-
-        # validate username
-        # TODO: check if more aggressive sanitisation is required on the user string
-        if not user:
-            raise ValueError("user cannot be empty")
-        if not self.validate_username(user.strip()):
-            raise ValueError("invalid username '%s'" % user)
+        self._checkUser(user)
 
         # get events
         path = "/users/%s" % user
         response = self.get(path, token)
-        checkResponse(response)
+        _checkResponse(response)
         return response.json()
 
     def get_user_received_events(self, user: str, token: str = None) -> List:
@@ -113,18 +110,12 @@ class GitHubAPI(object):
         """
         user = user.strip()
         logger.debug("GitHub API requesting events for user '%s'" % user)
-
-        # validate username
-        # TODO: check if more aggressive sanitisation is required on the user string
-        if not user:
-            raise ValueError("user cannot be empty")
-        if not self.validate_username(user.strip()):
-            raise ValueError("invalid username '%s'" % user)
+        self._checkUser(user)
 
         # get events
         path = "/users/%s/received_events" % user
         response = self.get(path, token)
-        checkResponse(response)
+        _checkResponse(response)
         return response.json()
 
     def get(self, path: str, token: str = None) -> requests.models.Response:
@@ -137,14 +128,24 @@ class GitHubAPI(object):
         if token:
             headers["Authorization"] = "token %s" % token
         response = requests.get(url, allow_redirects=True, headers=headers)
-        checkResponse(response)
+        _checkResponse(response)
         return response
 
+    def _checkUser(self, user: str):
+        # validate username
+        # TODO: check if more aggressive sanitisation is required on the user
+        if not user:
+            raise ValueError("user cannot be empty")
+        if not self.validate_username(user.strip()):
+            raise ValueError("invalid username '%s'" % user)
 
-def checkResponse(response: requests.models.Response):
-    """Raises a GitHubAPIError if the response does not have an ok status code or the content type is not JSON.
+
+def _checkResponse(response: requests.models.Response):
+    """Raises a GitHubAPIError if the response does not have an ok status code
+    or the content type is not JSON.
     """
-    if not response or not response.ok or not 'application/json' in response.headers.get('Content-Type', ''):
+    if (not response or not response.ok
+            or 'application/json' not in response.headers.get('Content-Type', '')):
         emsg = None
         try:
             emsg = "%s: %s" % (response.status_code,
@@ -156,6 +157,7 @@ def checkResponse(response: requests.models.Response):
 
 class GitHubAPIError(Exception):
     pass
+
 
 # Singleton so it's easier to separate layers
 github = GitHubAPI()

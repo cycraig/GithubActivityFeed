@@ -1,8 +1,7 @@
-import os
 import logging
-from flask import Blueprint, flash, render_template, request, g, session, redirect, url_for, render_template_string, jsonify
+from flask import Blueprint, flash, render_template, request, g, session, redirect, url_for, jsonify
 
-from service.github import github, GitHubAPIError
+from service.github import github
 from service.github_event_template import github_event_templates, github_event_icons
 from models.db import db
 from models.user import User
@@ -127,7 +126,7 @@ def snooze():
     try:
         logger.debug("Snoozing event for user %s: %s" %
                      (g.user.github_login, str(data)))
-        if not 'id' in data:
+        if 'id' not in data:
             raise HTTPException("Malformed event", 400)
         event = Event(data['id'], data, g.user.github_id)
         db.session.add(event)
@@ -151,7 +150,7 @@ def unsnooze():
     try:
         logger.debug("Unsnoozing event for user %s: %s" %
                      (g.user.github_login, str(data)))
-        if not 'id' in data:
+        if 'id' not in data:
             raise HTTPException("Malformed event", 400)
         event = Event.query.get(data['id'])
         if not event:
@@ -159,7 +158,7 @@ def unsnooze():
         db.session.delete(event)
         db.session.commit()
     except Exception as e:
-        logger.exception("failed to unsnooze event", e)
+        logger.exception(e)
         raise HTTPException("failed to unsnooze event", 500, request.json)
     resp = jsonify(success=True)
     return resp
@@ -183,11 +182,14 @@ def events():
     try:
         user_details = github.get_user(target_user, token)
         events = list(get_events(target_user, g.user))
-        return render_template("events.html", events=events, target_user=target_user, user_details=user_details, event_templates=github_event_templates, event_icons=github_event_icons, snoozed=False, logged_in=g.user != None)
+        return render_template("events.html", events=events, target_user=target_user, user_details=user_details,
+                               event_templates=github_event_templates, event_icons=github_event_icons,
+                               snoozed=False, logged_in=g.user is not None)
     except Exception as e:
         logger.exception(e)
         flash(str(e))
-        return render_template("events.html", events=None, target_user=target_user, user_details=None, snoozed=False, logged_in=g.user != None)
+        return render_template("events.html", events=None, target_user=target_user, user_details=None,
+                               snoozed=False, logged_in=g.user is not None)
 
 
 @eventbp.route("/reminders", methods=["GET"])
@@ -203,11 +205,14 @@ def reminders():
             g.user.github_login, g.user.github_access_token)
         events_objects = get_snoozed_events(g.user)
         snoozed_events = [e.event_json for e in events_objects]
-        return render_template("events.html", events=snoozed_events, target_user=g.user.github_login, user_details=user_details, event_templates=github_event_templates, event_icons=github_event_icons, snoozed=True, logged_in=g.user != None)
+        return render_template("events.html", events=snoozed_events, target_user=g.user.github_login,
+                               user_details=user_details, event_templates=github_event_templates,
+                               event_icons=github_event_icons, snoozed=True, logged_in=g.user is not None)
     except Exception as e:
         logger.exception(e)
         flash(str(e))
-        return render_template("events.html", events=None, target_user=g.user.github_login, user_details=None, snoozed=True, logged_in=g.user != None)
+        return render_template("events.html", events=None, target_user=g.user.github_login, user_details=None,
+                               snoozed=True, logged_in=g.user is not None)
 
 
 class HTTPException(Exception):

@@ -20,14 +20,14 @@ app.config.from_object(Config)
 app.register_blueprint(eventbp)
 
 # GitHub API
-if not app.config.get('GITHUB_CLIENT_ID', None) or not app.config.get('GITHUB_CLIENT_SECRET', None):
+if not app.config.get('GITHUB_CLIENT_ID') or not app.config.get('GITHUB_CLIENT_SECRET'):
     logger.error(
         'Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env or environment variables')
     sys.exit(-1)
 github.client_id = app.config['GITHUB_CLIENT_ID']
 github.client_secret = app.config['GITHUB_CLIENT_SECRET']
 
-# SQLAlchemy (needs to be run on import for pythonanywher# initialise database and start app
+# SQLAlchemy (needs to be run on import for pythonanywhere)
 db.app = app
 db.init_app(app)
 # create database tables for models
