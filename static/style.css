@@ -12,6 +12,7 @@ body {
 
 main.container {
     width: max-content;
+    max-width: 100%;
 }
 
 .outer-event-container {
