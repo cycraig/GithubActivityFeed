@@ -173,8 +173,8 @@
 
   function removeEventElement(event_id) {
     // remove event element from the DOM
-    var elem = document.getElementById(event_id)
-    elem.parentNode.removeChild(elem)
+    let elem = $('#'+event_id)
+    elem.hide(300, function(){ elem.remove(); });
     $(".popover.show").popover('hide');
   }
 </script>
