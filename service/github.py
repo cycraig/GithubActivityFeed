@@ -156,3 +156,6 @@ def checkResponse(response: requests.models.Response):
 
 class GitHubAPIError(Exception):
     pass
+
+# Singleton so it's easier to separate layers
+github = GitHubAPI()

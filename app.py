@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from flask import Flask, flash, render_template, request, g, session, redirect, url_for, render_template_string, jsonify
 
 from config import Config
-from service.github import GitHubAPI, GitHubAPIError
+from service.github import github, GitHubAPIError
 from service.github_event_template import github_event_templates, github_event_icons
 from models.db import db
 from models.user import User
@@ -26,8 +26,8 @@ if not app.config.get('GITHUB_CLIENT_ID', None) or not app.config.get('GITHUB_CL
     logger.error(
         'Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env or environment variables')
     sys.exit(-1)
-github = GitHubAPI(app.config['GITHUB_CLIENT_ID'],
-                   app.config['GITHUB_CLIENT_SECRET'])
+github.client_id = app.config['GITHUB_CLIENT_ID']
+github.client_secret = app.config['GITHUB_CLIENT_SECRET']
 
 # SQLAlchemy (needs to be run on import for pythonanywher# initialise database and start app
 db.app = app
