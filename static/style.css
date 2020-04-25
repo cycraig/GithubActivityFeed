@@ -11,7 +11,7 @@ body {
 }
 
 main.container {
-    width: fit-content;
+    width: max-content;
 }
 
 .outer-event-container {
@@ -67,7 +67,7 @@ img.avatar {
     display: flex;
     align-items: baseline;
     margin: auto;
-    width: fit-content;
+    width: max-content;
     margin-top: 10px;
 }
 
@@ -99,4 +99,9 @@ img.avatar {
     background: none;
     background-color: transparent;
     color: #c5c5c5;
+}
+
+.pagination {
+    width: max-content;
+    margin: auto;
 }

@@ -17,6 +17,8 @@ class GitHubAPI(object):
     access tokens.
     """
 
+    MAX_EVENTS_PER_PAGE = 30  # this is hardcoded in the GitHub API
+
     def __init__(self, client_id: str = None, client_secret: str = None):
         self.client_id = client_id
         self.client_secret = client_secret
@@ -74,8 +76,9 @@ class GitHubAPI(object):
         - cannot have multiple consecutive hyphens.
         - cannot begin or end with a hyphen.
         - has a maximum length of 39 characters.
+
+        Credit to https://github.com/shinnn/github-username-regex for regex
         """
-        # Credit to https://github.com/shinnn/github-username-regex for regex
         # TODO: compile once, re-use pattern instance
         pattern = re.compile(r"^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$")
         return pattern.match(username) is not None
@@ -93,14 +96,14 @@ class GitHubAPI(object):
         logger.debug("GitHub API requesting user details for '%s'" % user)
         self._checkUser(user)
 
-        # get events
+        # get user
         path = "/users/%s" % user
-        response = self.get(path, token)
+        response = self.get(path, None, token)
         _checkResponse(response)
         return response.json()
 
-    def get_user_received_events(self, user: str, token: str = None) -> List:
-        """Returns a list of dictionary JSON-encoded GitHub events for the user.
+    def get_user_received_events(self, user: str, page: int = None, token: str = None) -> List:
+        """Returns a list of dictionary JSON-encoded GitHub events for the user, the current page, and maximum page.
 
         If the token is None, only public events will be returned.
 
@@ -109,16 +112,40 @@ class GitHubAPI(object):
         See: https://developer.github.com/v3/activity/events/#list-public-events
         """
         user = user.strip()
-        logger.debug("GitHub API requesting events for user '%s'" % user)
+        if not page:
+            page = 1
+        logger.debug(
+            "GitHub API requesting events for user '%s' page '%s'" % (user, page))
         self._checkUser(user)
+
+        # pagination
+        params = {'page': page}
 
         # get events
         path = "/users/%s/received_events" % user
-        response = self.get(path, token)
+        response = self.get(path, params, token)
         _checkResponse(response)
-        return response.json()
 
-    def get(self, path: str, token: str = None) -> requests.models.Response:
+        # extract last page number from the GitHub link header
+        # e.g. 'link': '<https://api.github.com/user/5772887/received_events?page=2>; rel="next", <https://api.github.com/user/5772887/received_events?page=2>; rel="last"'
+        max_pages = page
+        try:
+            if 'link' in response.headers:
+                links = response.headers.get('link').rstrip('>').replace('>,<', ',<')
+                links = requests.utils.parse_header_links(links)
+                last_link = None
+                for link in links:
+                    if link['rel'] == 'last':
+                        last_link = link
+                        break
+                if last_link:
+                    max_pages = int(last_link.get('url').split('=')[-1])
+        except Exception as e:
+            logger.exception(e)
+
+        return response.json(), max_pages
+
+    def get(self, path: str, params: Dict = None, token: str = None) -> requests.models.Response:
         """Performs a GET request on the given GitHub path and returns the response.
         """
         # GitHub authorization: https://developer.github.com/v3/#authentication
@@ -127,7 +154,8 @@ class GitHubAPI(object):
         headers = {}
         if token:
             headers["Authorization"] = "token %s" % token
-        response = requests.get(url, allow_redirects=True, headers=headers)
+        response = requests.get(url, allow_redirects=True,
+                                params=params, headers=headers)
         _checkResponse(response)
         return response
 

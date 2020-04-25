@@ -1,5 +1,6 @@
 import logging
 from flask import Blueprint, flash, render_template, request, g, session, redirect, url_for, jsonify
+from flask_paginate import Pagination
 
 from service.github import github
 from service.github_event_template import github_event_templates, github_event_icons
@@ -42,7 +43,7 @@ def oauth_callback():
         return redirect(next_url)
 
     # Retrieve an existing user by their access token
-    github_user = github.get('/user', access_token).json()
+    github_user = github.get('/user', None, access_token).json()
     user = User.query.filter_by(github_access_token=access_token).first()
     if user is None:
         # Search by github_id in case the access_token changed
@@ -95,7 +96,7 @@ def get_snoozed_events(user: User):
     return snoozed_events
 
 
-def get_events(target_user: str, user: User):
+def get_events(target_user: str, user: User, page: int):
     '''
     Returns a list of JSON-encoded events for the user with snoozed events filtered out.
 
@@ -104,14 +105,14 @@ def get_events(target_user: str, user: User):
     token = None
     if user:
         token = user.github_access_token
-    events = github.get_user_received_events(target_user, token)
+    events, max_pages = github.get_user_received_events(target_user, page, token)
 
     # filter out snoozed events from the list
     snoozed_events = get_snoozed_events(user)
     snoozed_events_ids = set()
     for se in snoozed_events:
         snoozed_events_ids.add(se.event_id)
-    return filter(lambda e: e['id'] not in snoozed_events_ids, events)
+    return list(filter(lambda e: e['id'] not in snoozed_events_ids, events)), max_pages
 
 
 @eventbp.route("/snooze", methods=["POST"])
@@ -172,6 +173,7 @@ def events():
     # Extract user to retrieve events of from args.
     # If absent default to the logged-in user, otherwise cycraig
     target_user = request.args.get("user", None)
+    page = request.args.get('page', type=int, default=1)
     if g.user:
         token = g.user.github_access_token
         if target_user is None:
@@ -181,15 +183,16 @@ def events():
 
     try:
         user_details = github.get_user(target_user, token)
-        events = list(get_events(target_user, g.user))
+        events, max_pages = get_events(target_user, g.user, page)
+        pagination = Pagination(page=page, per_page=github.MAX_EVENTS_PER_PAGE, total=max_pages*github.MAX_EVENTS_PER_PAGE, css_framework='bootstrap4')
         return render_template("events.html", events=events, target_user=target_user, user_details=user_details,
                                event_templates=github_event_templates, event_icons=github_event_icons,
-                               snoozed=False, logged_in=g.user is not None)
+                               snoozed=False, logged_in=g.user is not None, pagination=pagination)
     except Exception as e:
         logger.exception(e)
         flash(str(e))
         return render_template("events.html", events=None, target_user=target_user, user_details=None,
-                               snoozed=False, logged_in=g.user is not None)
+                               snoozed=False, logged_in=g.user is not None, pagination=None)
 
 
 @eventbp.route("/reminders", methods=["GET"])
@@ -207,12 +210,13 @@ def reminders():
         snoozed_events = [e.event_json for e in events_objects]
         return render_template("events.html", events=snoozed_events, target_user=g.user.github_login,
                                user_details=user_details, event_templates=github_event_templates,
-                               event_icons=github_event_icons, snoozed=True, logged_in=g.user is not None)
+                               event_icons=github_event_icons, snoozed=True, logged_in=g.user is not None,
+                               pagination=None)
     except Exception as e:
         logger.exception(e)
         flash(str(e))
         return render_template("events.html", events=None, target_user=g.user.github_login, user_details=None,
-                               snoozed=True, logged_in=g.user is not None)
+                               snoozed=True, logged_in=g.user is not None, pagination=None)
 
 
 class HTTPException(Exception):

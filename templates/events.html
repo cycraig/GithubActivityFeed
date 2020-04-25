@@ -52,8 +52,9 @@
       </div>
     </div>
     {% endfor %}
+    {{ pagination.links }}
   {% else %}
-    No {% if snoozed %} reminders {% else %} events {% endif %} for {{ target_user }}!
+    No {% if snoozed %} reminders {% else %} recent events {% endif %} for {{ target_user }}.
   {% endif %}
 {% endblock %}
 

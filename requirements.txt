@@ -1,4 +1,5 @@
 flask
+flask-paginate
 flask-sqlalchemy
 python-dateutil
 python-dotenv
