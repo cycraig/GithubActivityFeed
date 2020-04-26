@@ -80,8 +80,7 @@
     }
     console.log("Clearing filter...")
     events.filter(function(event) {
-      const id = event['id']
-      const elem = $("#"+id)
+      const elem = $("#"+event['id'])
       if (elem) { // element may not exist due to reminders
         elem.show()
       }
@@ -89,9 +88,9 @@
   }
 
   function filter() {
+    // Extract query from search box
     let formData = new FormData(form)
     let query = formData.get("search-text")
-
     if(query) {
       query = query.trim().toLowerCase()
     } else {
@@ -101,11 +100,10 @@
     console.log("Filter by: "+query)
 
     // Client-side search filtering since we already have all the events...
-    events.filter(function(event) {
-      const id = event['id']
+    events.forEach(function(event) {
       // Searching the DOM is SLOW but it has the formatted event descriptions which the events JSON lack.
       // TODO: insert the descriptions in the events JSON server-side?
-      const elem = $("#"+id)
+      const elem = $("#"+event['id'])
       if (elem) { // element may not exist due to reminders
         const text = elem.text()
 
@@ -138,15 +136,11 @@
     // Snooze an event by searching through the raw list of events and sending it as a JSON payload...
     console.log("Snoozing event "+event_id)
 
-    // SLOW!
-    pos = 0
-    for(e in events) {
-      if(events[e]['id'] == event_id) {
-        break;
-      }
-      pos++
-    }
-    if(pos >= events.length) {
+    // Linear search...
+    pos = events.findIndex(function(event) {
+        return event['id'] == event_id
+    })
+    if(pos < 0) {
       console.error("Event id not found! " + event_id)
       return;
     }
